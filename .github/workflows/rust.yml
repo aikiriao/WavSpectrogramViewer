@@ -35,4 +35,4 @@ jobs:
       with:
         name: artifacts_${{ matrix.os }}
         path: |
-          ./build/release/wav_spectrum_viewer
+          ./target/release/wav_spectrum_viewer
