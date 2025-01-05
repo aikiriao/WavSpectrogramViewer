@@ -1,0 +1,17 @@
+[package]
+name = "wav_spectrum_viewer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = { version = "0.13", features = ["canvas", "tokio", "debug"] }
+tokio = { version = "1.0", features = ["fs"] }
+rfd = "0.13"
+hound = "3.5.1"
+realfft = "3.4.0"
+colorous = "1.0.15"
+rustfft = "6.2.0"
+cpal = "0.15.3"
+samplerate = "0.2.4"
+aifc = "0.5.3"
+special-fun = "0.3.0"
