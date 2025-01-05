@@ -19,6 +19,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Preparation on Linux
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install libglib2.0-dev
     - name: Build
       run: |
         cargo build --verbose
