@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use aifc;
 use hound;
 use iced::widget::canvas::{self, stroke, Cache, Canvas, Event, Frame, Geometry, Path, Stroke};
