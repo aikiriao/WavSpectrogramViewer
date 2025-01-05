@@ -366,7 +366,7 @@ impl WavSpectrumViewer {
                 // 最小値より大きい場合のみ設定
                 if let Some(wav) = &self.wav {
                     if let Ok(hz) = result.parse::<f32>() {
-                        if hz < wav.format.sampling_rate / 2.0 && hz > self.hz_range.0 {
+                        if hz <= wav.format.sampling_rate / 2.0 && hz > self.hz_range.0 {
                             self.hz_range.1 = hz;
                             self.hz_range_string.1 = hz.to_string();
                             self.request_redraw();
