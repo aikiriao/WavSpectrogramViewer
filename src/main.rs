@@ -36,7 +36,7 @@ const YLABEL_WIDTH: f32 = 32.0;
 const DEFAULT_MIN_HZ: f32 = 50.0;
 const DEFAULT_MAX_HZ: f32 = 18000.0;
 const WAVEFORM_HEIGHT_RATIO: f32 = 1.0 / 8.0;
-const MIN_RANGE_RATIO_WIDTH: f64 = 1e-3;
+const MIN_RANGE_RATIO_WIDTH: f64 = 1e-2;
 
 pub fn main() -> iced::Result {
     iced::application(
@@ -931,20 +931,6 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
         .abs();
     let pcm_normalizer = half_height / max_abs_pcm;
 
-    // 波形描画パスを生成
-    let path = Path::new(|b| {
-        b.move_to(Point::new(
-            center_left.x,
-            center.y + pcm[0] * pcm_normalizer,
-        ));
-        for i in 1..num_points_to_draw {
-            b.line_to(Point::new(
-                center_left.x + i as f32 * x_offset_delta,
-                center.y + pcm[i * sample_stride] * pcm_normalizer,
-            ));
-        }
-    });
-
     // 背景を塗りつぶす
     frame.fill_rectangle(
         Point::new(bounds.x, bounds.y),
@@ -952,15 +938,63 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
         Color::from_rgb8(0, 0, 0),
     );
 
-    // 波形描画
-    frame.stroke(
-        &path,
-        Stroke {
-            style: stroke::Style::Solid(Color::from_rgb(0.0, 196.0, 0.0)),
-            width: 1.0,
-            ..Stroke::default()
-        },
-    );
+    let line_color = Color::from_rgb(0.0, 196.0, 0.0);
+    let pixels_per_sample = bounds.width / pcm.len() as f32;
+    if pixels_per_sample > 0.005 {
+        // 波形描画パスを生成
+        let path = Path::new(|b| {
+            b.move_to(Point::new(
+                center_left.x,
+                center.y + pcm[0] * pcm_normalizer,
+            ));
+            for i in 1..num_points_to_draw {
+                b.line_to(Point::new(
+                    center_left.x + i as f32 * x_offset_delta,
+                    center.y + pcm[i * sample_stride] * pcm_normalizer,
+                ));
+            }
+        });
+        // 波形描画
+        frame.stroke(
+            &path,
+            Stroke {
+                style: stroke::Style::Solid(line_color),
+                width: 1.0,
+                ..Stroke::default()
+            },
+        );
+    } else {
+        // サンプル数当たりのピクセルが小さいときは、最小値と最大値をつなぐ矩形のみ描画
+        let mut prev_sample = 0;
+        for i in 0..num_points_to_draw {
+            let current_sample = (i + 1) * sample_stride;
+            let max_val = pcm[prev_sample..current_sample]
+                .iter()
+                .max_by(|a, b| a.total_cmp(&b))
+                .unwrap();
+            let min_val = pcm[prev_sample..current_sample]
+                .iter()
+                .min_by(|a, b| a.total_cmp(&b))
+                .unwrap();
+
+            // 最大と最小の差がない（無音など）ときは高さをクリップ
+            let mut height = (max_val - min_val) * pcm_normalizer;
+            if height < 0.5 {
+                height = 0.5;
+            }
+
+            // 矩形描画
+            frame.fill_rectangle(
+                Point::new(
+                    center_left.x + i as f32 * x_offset_delta,
+                    center.y - max_val * pcm_normalizer,
+                ),
+                Size::new(1.0, height),
+                line_color,
+            );
+            prev_sample = current_sample;
+        }
+    }
 }
 
 /// 線形周波数からBarkスケールに変換(Traunmuller 1990)
