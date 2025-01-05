@@ -939,8 +939,9 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
     );
 
     let line_color = Color::from_rgb(0.0, 196.0, 0.0);
-    let pixels_per_sample = bounds.width / pcm.len() as f32;
-    if pixels_per_sample > 0.005 {
+    let samples_per_pixel = pcm.len() as f32 / bounds.width;
+    const USE_PATH_THRESHOLD: f32 = 200.0;
+    if samples_per_pixel < USE_PATH_THRESHOLD {
         // 波形描画パスを生成
         let path = Path::new(|b| {
             b.move_to(Point::new(
@@ -964,9 +965,10 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
             },
         );
     } else {
-        // サンプル数当たりのピクセルが小さいときは、最小値と最大値をつなぐ矩形のみ描画
+        // ピクセルあたりのサンプル数が多いときは、最小値と最大値をつなぐ矩形のみ描画
         let mut prev_sample = 0;
         for i in 0..num_points_to_draw {
+            const MIN_HEIGHT: f32 = 0.5;
             let current_sample = (i + 1) * sample_stride;
             let max_val = pcm[prev_sample..current_sample]
                 .iter()
@@ -979,8 +981,8 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
 
             // 最大と最小の差がない（無音など）ときは高さをクリップ
             let mut height = (max_val - min_val) * pcm_normalizer;
-            if height < 0.5 {
-                height = 0.5;
+            if height < MIN_HEIGHT {
+                height = MIN_HEIGHT;
             }
 
             // 矩形描画
