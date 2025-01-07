@@ -106,6 +106,7 @@ struct WavSpectrumViewer {
     stream: Option<Stream>,
     stream_is_playing: Arc<AtomicBool>,
     stream_played_samples: Arc<AtomicUsize>,
+    stream_resampled_pcm: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Clone)]
@@ -253,6 +254,7 @@ impl WavSpectrumViewer {
                 stream: None,
                 stream_is_playing: Arc::new(AtomicBool::new(false)),
                 stream_played_samples: Arc::new(AtomicUsize::new(0)),
+                stream_resampled_pcm: None,
             },
             Task::none(),
         )
@@ -293,6 +295,18 @@ impl WavSpectrumViewer {
                     }
                     self.hz_range_string =
                         (self.hz_range.0.to_string(), self.hz_range.1.to_string());
+
+                    // 出力先デバイスのレートに合わせてレート変換しておく
+                    self.stream_resampled_pcm = Some(
+                        convert(
+                            wav.format.sampling_rate as u32,
+                            self.stream_config.sample_rate.0 as u32,
+                            wav.format.num_channels as usize,
+                            ConverterType::SincBestQuality,
+                            &wav.interleaved_pcm,
+                        )
+                        .unwrap(),
+                    );
                     self.request_redraw();
                 }
 
@@ -435,15 +449,9 @@ impl WavSpectrumViewer {
                     // 再生中の場合は止める
                     self.stream_play_stop().expect("Failed to stop play");
                 } else {
-                    if let Some(wav) = &self.wav {
-                        if let Some(range) = self.sample_range {
-                            // 新規再生処理
-                            let stream = self
-                                .stream_play_start(wav, range)
-                                .expect("Failed to start play");
-                            self.stream = Some(stream);
-                        }
-                    }
+                    // 新規再生処理
+                    let stream = self.stream_play_start().expect("Failed to start play");
+                    self.stream = Some(stream);
                 }
 
                 Task::none()
@@ -673,57 +681,70 @@ impl WavSpectrumViewer {
     }
 
     // 再生開始
-    fn stream_play_start(
-        &self,
-        wav: &WavData,
-        sample_range: (usize, usize),
-    ) -> Result<Stream, PlayStreamError> {
-        // 出力先デバイスに合わせてレート変換
-        let pcm = convert(
-            wav.format.sampling_rate as u32,
-            self.stream_config.sample_rate.0 as u32,
-            wav.format.num_channels as usize,
-            ConverterType::SincBestQuality,
-            &wav.interleaved_pcm[sample_range.0 * wav.format.num_channels as usize
-                ..sample_range.1 * wav.format.num_channels as usize],
-        )
-        .unwrap();
+    fn stream_play_start(&self) -> Result<Stream, PlayStreamError> {
+        if let Some(wav) = &self.wav {
+            if let Some(resampled_pcm) = &self.stream_resampled_pcm {
+                if let Some(range) = self.sample_range {
+                    let num_channels = wav.format.num_channels as usize;
+                    let sampling_rate = wav.format.sampling_rate;
+                    // リサンプルした状態での範囲に変換
+                    let resampled_range = (
+                        f32::round(
+                            range.0 as f32 * self.stream_config.sample_rate.0 as f32
+                                / sampling_rate,
+                        ) as usize,
+                        f32::round(
+                            range.1 as f32 * self.stream_config.sample_rate.0 as f32
+                                / sampling_rate,
+                        ) as usize,
+                    );
 
-        let is_playing = self.stream_is_playing.clone();
-        let played_samples = self.stream_played_samples.clone();
+                    let is_playing = self.stream_is_playing.clone();
+                    let played_samples = self.stream_played_samples.clone();
+                    let pcm: Vec<_> = resampled_pcm
+                        [resampled_range.0 * num_channels..resampled_range.1 * num_channels]
+                        .to_vec();
 
-        // 再生ストリーム作成
-        let stream = self
-            .stream_device
-            .build_output_stream(
-                &self.stream_config,
-                move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let progress = played_samples.load(Ordering::Relaxed);
-                    // 一旦バッファを無音で埋める
-                    buffer.fill(0.0);
-                    if progress < pcm.len() {
-                        // バッファにコピー
-                        let num_copy_samples = cmp::min(pcm.len() - progress, buffer.len());
-                        buffer[..num_copy_samples]
-                            .copy_from_slice(&pcm[progress..progress + num_copy_samples]);
-                        // 再生サンプル増加
-                        played_samples.store(progress + num_copy_samples, Ordering::Relaxed);
-                    } else {
-                        // 指定サンプル数を再生し終わった
-                        is_playing.store(false, Ordering::Relaxed);
-                    }
-                },
-                |err| eprintln!("[WavSpectrumViewer] {err}"),
-                None,
-            )
-            .unwrap();
+                    // 再生ストリーム作成
+                    let stream = self
+                        .stream_device
+                        .build_output_stream(
+                            &self.stream_config,
+                            move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                                let progress = played_samples.load(Ordering::Relaxed);
+                                // 一旦バッファを無音で埋める
+                                buffer.fill(0.0);
+                                if progress < pcm.len() {
+                                    // バッファにコピー
+                                    let num_copy_samples =
+                                        cmp::min(pcm.len() - progress, buffer.len());
+                                    buffer[..num_copy_samples].copy_from_slice(
+                                        &pcm[progress..progress + num_copy_samples],
+                                    );
+                                    // 再生サンプル増加
+                                    played_samples
+                                        .store(progress + num_copy_samples, Ordering::Relaxed);
+                                } else {
+                                    // 指定サンプル数を再生し終わった
+                                    is_playing.store(false, Ordering::Relaxed);
+                                }
+                            },
+                            |err| eprintln!("[WavSpectrumViewer] {err}"),
+                            None,
+                        )
+                        .unwrap();
 
-        // 再生開始
-        self.stream_played_samples.store(0, Ordering::Relaxed);
-        self.stream_is_playing.store(true, Ordering::Relaxed);
-        stream.play()?;
+                    // 再生開始
+                    self.stream_played_samples.store(0, Ordering::Relaxed);
+                    self.stream_is_playing.store(true, Ordering::Relaxed);
+                    stream.play()?;
+                    return Ok(stream);
+                }
+            }
+        }
 
-        Ok(stream)
+        // TODO: 適切なエラーに差し替え
+        Err(PlayStreamError::DeviceNotAvailable)
     }
 
     // 再生停止
