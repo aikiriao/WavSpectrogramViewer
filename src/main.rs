@@ -1121,6 +1121,7 @@ fn draw_spectrum(
     let bin_length = f32::round(bin_range.1 - bin_range.0) as usize;
     let num_bins_to_draw = cmp::min(bin_length, height as usize); // 描画高がスペクトル数より多くならないようにクリップ
     let delta_bin = bin_length as f32 / num_bins_to_draw as f32;
+    let min_spec_abs = f32::powf(10.0, db_range.0 / 20.0);
 
     let width_per_frame = width / num_frames_to_draw as f32;
 
@@ -1137,7 +1138,14 @@ fn draw_spectrum(
         spectrum_maker(&mut input, &mut spectrum, num_frame_samples);
         let logabs_spec = spectrum
             .iter()
-            .map(|&x| 20.0 * (x.abs().log10()))
+            .map(|&x| {
+                let abs = x.abs();
+                if abs < min_spec_abs {
+                    20.0 * min_spec_abs.log10()
+                } else {
+                    20.0 * abs.log10()
+                }
+            })
             .collect::<Vec<_>>();
 
         let mut hzpos = get_bin_hz_poition(
