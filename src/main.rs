@@ -450,8 +450,7 @@ impl WavSpectrumViewer {
                     self.stream_play_stop().expect("Failed to stop play");
                 } else {
                     // 新規再生処理
-                    let stream = self.stream_play_start().expect("Failed to start play");
-                    self.stream = Some(stream);
+                    self.stream_play_start().expect("Failed to start play");
                 }
 
                 Task::none()
@@ -667,21 +666,17 @@ impl WavSpectrumViewer {
 
     // サンプル比率からサンプル位置を取得
     fn get_sample_position_from_ratio(&self, ratio: f64) -> Option<usize> {
-        if let Some(_) = &self.wav {
-            if let Some(range) = self.sample_range {
-                let offset = range.0 as f64;
-                let len = (range.1 - range.0) as f64;
-                Some((offset + len * ratio) as usize)
-            } else {
-                None
-            }
+        if let Some(range) = self.sample_range {
+            let offset = range.0 as f64;
+            let len = (range.1 - range.0) as f64;
+            Some(f64::round(offset + len * ratio) as usize)
         } else {
             None
         }
     }
 
     // 再生開始
-    fn stream_play_start(&self) -> Result<Stream, PlayStreamError> {
+    fn stream_play_start(&mut self) -> Result<(), PlayStreamError> {
         if let Some(wav) = &self.wav {
             if let Some(resampled_pcm) = &self.stream_resampled_pcm {
                 if let Some(range) = self.sample_range {
@@ -738,13 +733,12 @@ impl WavSpectrumViewer {
                     self.stream_played_samples.store(0, Ordering::Relaxed);
                     self.stream_is_playing.store(true, Ordering::Relaxed);
                     stream.play()?;
-                    return Ok(stream);
+                    self.stream = Some(stream);
                 }
             }
         }
 
-        // TODO: 適切なエラーに差し替え
-        Err(PlayStreamError::DeviceNotAvailable)
+        Ok(())
     }
 
     // 再生停止
