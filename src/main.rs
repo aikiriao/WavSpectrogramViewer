@@ -1351,13 +1351,6 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                 let spectrum_height = bounds.height - waveform_height;
                 let frame_size = self.frame_size.as_ref().unwrap().to_usize();
 
-                // 分析チャンネルの信号を取得
-                let pcm: Vec<_> = wav.interleaved_pcm[(self.analyze_channel.unwrap() - 1)..]
-                    .to_vec()
-                    .into_iter()
-                    .step_by(wav.format.num_channels as usize)
-                    .collect();
-
                 // 描画サンプル範囲
                 let sample_range = if let Some(range) = self.sample_range {
                     range
@@ -1368,6 +1361,13 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     )
                 };
 
+                // 分析チャンネル・描画サンプル範囲の信号を取得
+                let pcm = &(wav.interleaved_pcm[(self.analyze_channel.unwrap() - 1)..]
+                    .to_vec()
+                    .into_iter()
+                    .step_by(wav.format.num_channels as usize)
+                    .collect::<Vec<f32>>())[sample_range.0..sample_range.1];
+
                 let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
 
                 // 波形描画
@@ -1377,7 +1377,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         Point::new(YLABEL_WIDTH, 0.0),
                         Size::new(bounds.width, waveform_height),
                     ),
-                    &pcm[sample_range.0..sample_range.1],
+                    &pcm,
                 );
 
                 // 時刻ラベル描画
@@ -1398,7 +1398,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         Point::new(0.0, 0.0),
                         Size::new(YLABEL_WIDTH, waveform_height),
                     ),
-                    &pcm[sample_range.0..sample_range.1],
+                    &pcm,
                 );
 
                 // FFTスペクトルの生成
@@ -1465,7 +1465,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                                 Point::new(YLABEL_WIDTH, waveform_height),
                                 Size::new(bounds.width, spectrum_height_per_view),
                             ),
-                            &pcm[sample_range.0..sample_range.1],
+                            &pcm,
                             sampling_rate,
                             frame_size,
                             self.window_type.as_ref().unwrap(),
@@ -1500,7 +1500,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                                 Point::new(YLABEL_WIDTH, waveform_height + spectrum_height_offset),
                                 Size::new(bounds.width, spectrum_height_per_view),
                             ),
-                            &pcm[sample_range.0..sample_range.1],
+                            &pcm,
                             sampling_rate,
                             frame_size,
                             self.window_type.as_ref().unwrap(),
