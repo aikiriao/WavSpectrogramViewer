@@ -275,6 +275,11 @@ impl WavSpectrumViewer {
                 self.is_loading = false;
 
                 if let Ok((path, wav)) = result {
+                    // 再生中の場合は止める
+                    if self.stream_is_playing.load(Ordering::Relaxed) {
+                        self.stream_play_stop().expect("Failed to stop play");
+                    }
+
                     self.file = Some(path);
                     self.wav = Some(wav.clone());
                     self.sample_range = Some((0, wav.format.num_samples_per_channel - 1));
