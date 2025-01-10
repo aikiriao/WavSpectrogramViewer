@@ -1139,7 +1139,7 @@ fn draw_spectrum(
         2.0 * hz_range.1 * num_spectrum as f32 / sampling_rate,
     );
     let bin_length = f32::round(bin_range.1 - bin_range.0) as usize;
-    let num_bins_to_draw = cmp::min(bin_length, height as usize); // 描画高がスペクトル数より多くならないようにクリップ
+    let num_bins_to_draw = cmp::min(bin_length, 2 * height as usize); // 描画高がスペクトル数より多くならないようにクリップ
     let delta_bin = bin_length as f32 / num_bins_to_draw as f32;
     let min_spec_abs = f32::powf(10.0, db_range.0 / 20.0);
 
