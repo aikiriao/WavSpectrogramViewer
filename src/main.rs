@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // Releaseビルドの時コンソールを非表示
 use aifc;
 use hound;
 use iced::widget::canvas::{self, stroke, Cache, Canvas, Event, Frame, Geometry, Path, Stroke};
