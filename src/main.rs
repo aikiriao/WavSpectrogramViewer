@@ -40,7 +40,7 @@ const MIN_RANGE_RATIO_WIDTH: f64 = 1e-2;
 
 pub fn main() -> iced::Result {
     iced::application(
-        "WavSpectrumViewer - Iced",
+        "WavSpectrogramViewer - Iced",
         WavSpectrumViewer::update,
         WavSpectrumViewer::view,
     )

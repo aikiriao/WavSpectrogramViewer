@@ -1,5 +1,5 @@
 [package]
-name = "wav_spectrum_viewer"
+name = "wav_spectrogram_viewer"
 version = "0.1.0"
 edition = "2021"
 
