@@ -426,16 +426,12 @@ impl WavSpectrumViewer {
                 Task::none()
             }
             Message::SampleRangeUpdated(result) => {
-                if let Some(range) = self.sample_range {
-                    if let Some(position) = self.sample_position {
-                        // 変更前のサンプル位置比を保持
-                        let offset = position - range.0;
-                        let ratio = offset as f64 / (range.1 - range.0) as f64;
-                        self.sample_range = result;
-                        self.sample_position = self.get_sample_position_from_ratio(ratio);
-                    } else {
-                        self.sample_range = result;
-                    }
+                if let (Some(range), Some(position)) = (self.sample_range, self.sample_position) {
+                    // 変更前のサンプル位置比を保持
+                    let offset = position - range.0;
+                    let ratio = offset as f64 / (range.1 - range.0) as f64;
+                    self.sample_range = result;
+                    self.sample_position = self.get_sample_position_from_ratio(ratio);
                 } else {
                     self.sample_range = result;
                 }
@@ -711,65 +707,56 @@ impl WavSpectrumViewer {
 
     // 再生開始
     fn stream_play_start(&mut self) -> Result<(), PlayStreamError> {
-        if let Some(wav) = &self.wav {
-            if let Some(resampled_pcm) = &self.stream_resampled_pcm {
-                if let Some(range) = self.sample_range {
-                    let num_channels = wav.format.num_channels as usize;
-                    let sampling_rate = wav.format.sampling_rate;
-                    // リサンプルした状態での範囲に変換
-                    let resampled_range = (
-                        f32::round(
-                            range.0 as f32 * self.stream_config.sample_rate.0 as f32
-                                / sampling_rate,
-                        ) as usize,
-                        f32::round(
-                            range.1 as f32 * self.stream_config.sample_rate.0 as f32
-                                / sampling_rate,
-                        ) as usize,
-                    );
+        if let (Some(wav), Some(resampled_pcm), Some(range)) =
+            (&self.wav, &self.stream_resampled_pcm, self.sample_range)
+        {
+            let num_channels = wav.format.num_channels as usize;
+            let sampling_rate = wav.format.sampling_rate;
+            // リサンプルした状態での範囲に変換
+            let resampled_range = (
+                f32::round(range.0 as f32 * self.stream_config.sample_rate.0 as f32 / sampling_rate)
+                    as usize,
+                f32::round(range.1 as f32 * self.stream_config.sample_rate.0 as f32 / sampling_rate)
+                    as usize,
+            );
 
-                    let is_playing = self.stream_is_playing.clone();
-                    let played_samples = self.stream_played_samples.clone();
-                    let pcm: Vec<_> = resampled_pcm
-                        [resampled_range.0 * num_channels..resampled_range.1 * num_channels]
-                        .to_vec();
+            let is_playing = self.stream_is_playing.clone();
+            let played_samples = self.stream_played_samples.clone();
+            let pcm: Vec<_> = resampled_pcm
+                [resampled_range.0 * num_channels..resampled_range.1 * num_channels]
+                .to_vec();
 
-                    // 再生ストリーム作成
-                    let stream = self
-                        .stream_device
-                        .build_output_stream(
-                            &self.stream_config,
-                            move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                                let progress = played_samples.load(Ordering::Relaxed);
-                                // 一旦バッファを無音で埋める
-                                buffer.fill(0.0);
-                                if progress < pcm.len() {
-                                    // バッファにコピー
-                                    let num_copy_samples =
-                                        cmp::min(pcm.len() - progress, buffer.len());
-                                    buffer[..num_copy_samples].copy_from_slice(
-                                        &pcm[progress..progress + num_copy_samples],
-                                    );
-                                    // 再生サンプル増加
-                                    played_samples
-                                        .store(progress + num_copy_samples, Ordering::Relaxed);
-                                } else {
-                                    // 指定サンプル数を再生し終わった
-                                    is_playing.store(false, Ordering::Relaxed);
-                                }
-                            },
-                            |err| eprintln!("[WavSpectrumViewer] {err}"),
-                            None,
-                        )
-                        .unwrap();
+            // 再生ストリーム作成
+            let stream = self
+                .stream_device
+                .build_output_stream(
+                    &self.stream_config,
+                    move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                        let progress = played_samples.load(Ordering::Relaxed);
+                        // 一旦バッファを無音で埋める
+                        buffer.fill(0.0);
+                        if progress < pcm.len() {
+                            // バッファにコピー
+                            let num_copy_samples = cmp::min(pcm.len() - progress, buffer.len());
+                            buffer[..num_copy_samples]
+                                .copy_from_slice(&pcm[progress..progress + num_copy_samples]);
+                            // 再生サンプル増加
+                            played_samples.store(progress + num_copy_samples, Ordering::Relaxed);
+                        } else {
+                            // 指定サンプル数を再生し終わった
+                            is_playing.store(false, Ordering::Relaxed);
+                        }
+                    },
+                    |err| eprintln!("[WavSpectrumViewer] {err}"),
+                    None,
+                )
+                .unwrap();
 
-                    // 再生開始
-                    self.stream_played_samples.store(0, Ordering::Relaxed);
-                    self.stream_is_playing.store(true, Ordering::Relaxed);
-                    stream.play()?;
-                    self.stream = Some(stream);
-                }
-            }
+            // 再生開始
+            self.stream_played_samples.store(0, Ordering::Relaxed);
+            self.stream_is_playing.store(true, Ordering::Relaxed);
+            stream.play()?;
+            self.stream = Some(stream);
         }
 
         Ok(())
