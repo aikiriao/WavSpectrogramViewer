@@ -99,6 +99,7 @@ struct WavSpectrumViewer {
     analyze_channel_box: combo_box::State<usize>,
     sample_range: Option<(usize, usize)>,
     sample_position: Option<usize>,
+    hz_position: Option<f32>,
     hz_range: (f32, f32),
     hz_range_string: (String, String),
     stream_device: Device,
@@ -204,7 +205,7 @@ enum Message {
     SpectrumViewModeSelected(SpectrumViewMode),
     AnalyzeChannelUpdated(usize),
     SampleRangeUpdated(Option<(usize, usize)>),
-    CursorMovedOnSpectrum(Option<usize>),
+    CursorMovedOnSpectrum(Option<(f64, f64)>),
     ReceivedPlayStartRequest,
     Tick,
     EventOccurred(iced::Event),
@@ -247,6 +248,7 @@ impl WavSpectrumViewer {
                 analyze_channel_box: combo_box::State::new(vec![1; 1]),
                 sample_range: None,
                 sample_position: None,
+                hz_position: None,
                 stream_config: device.default_output_config().unwrap().into(),
                 stream_device: device,
                 hz_range: (DEFAULT_MIN_HZ, DEFAULT_MAX_HZ),
@@ -445,7 +447,21 @@ impl WavSpectrumViewer {
                 Task::none()
             }
             Message::CursorMovedOnSpectrum(result) => {
-                self.sample_position = result;
+                if let Some((sample_ratio, hz_ratio)) = result {
+                    self.sample_position = self.get_sample_position_from_ratio(sample_ratio);
+                    self.hz_position = if hz_ratio >= 0.0 && hz_ratio <= 1.0 {
+                        Some(get_hz_from_normalized_position(
+                            &self.frequency_scale.as_ref().unwrap(),
+                            hz_ratio as f32,
+                            self.hz_range,
+                        ))
+                    } else {
+                        None
+                    };
+                } else {
+                    self.sample_position = None;
+                    self.hz_position = None;
+                }
 
                 Task::none()
             }
@@ -615,9 +631,22 @@ impl WavSpectrumViewer {
                 }
             ),
             text({
-                if let Some(position) = self.sample_position {
+                if let Some(sample_position) = self.sample_position {
+                    // カーソル位置のサンプルを表示
                     let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
-                    format!("{}({:.2}s)", position, position as f32 / sampling_rate)
+                    format!(
+                        "{}({:.2}s)",
+                        sample_position,
+                        sample_position as f32 / sampling_rate,
+                    )
+                } else {
+                    format!("")
+                }
+            }),
+            text({
+                if let (Some(_), Some(hz_position)) = (&self.wav, self.hz_position) {
+                    // カーソル位置の周波数を表示
+                    format!("{:.1}Hz", hz_position)
                 } else {
                     format!("")
                 }
@@ -1550,7 +1579,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
         // カーソル位置に関係するイベント処理
         if let Some(cursor_position) = cursor.position_in(bounds) {
             let pending_state = &mut state.as_mut().unwrap().pending;
-            let get_ratio = |x: f32| {
+            let get_sample_ratio = |x: f32| {
                 if x < YLABEL_WIDTH {
                     0.0
                 } else {
@@ -1580,8 +1609,8 @@ impl canvas::Program<Message> for WavSpectrumViewer {
 
                             if let Some(Pending::Two { from, to }) = pending_state {
                                 // 画面内の比を取得
-                                let mut from_ratio = get_ratio(from.x);
-                                let mut to_ratio = get_ratio(to.x);
+                                let mut from_ratio = get_sample_ratio(from.x);
+                                let mut to_ratio = get_sample_ratio(to.x);
                                 // from < toとなるように入れ替え
                                 if from_ratio > to_ratio {
                                     (from_ratio, to_ratio) = (to_ratio, from_ratio)
@@ -1632,7 +1661,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         } else {
                             // 幅が現在の2倍になるように修正
                             let cursor_center =
-                                current_range.0 + get_ratio(cursor_position.x) * range_width;
+                                current_range.0 + get_sample_ratio(cursor_position.x) * range_width;
                             current_range.0 = cursor_center - range_width;
                             current_range.1 = cursor_center + range_width;
                         }
@@ -1652,11 +1681,26 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     }
                 }
                 Event::Mouse(mouse::Event::CursorMoved { position }) => {
+                    // スペクトル内のy座標を計算
+                    let y_offset = bounds.y + bounds.height * WAVEFORM_HEIGHT_RATIO;
+                    // スペクトル描画エリアの高さを計算
+                    let spec_height = match self.spectrum_view_mode {
+                        Some(SpectrumViewMode::FFTANDMDCT) => {
+                            (bounds.height - bounds.height * WAVEFORM_HEIGHT_RATIO) / 2.0
+                        }
+                        _ => bounds.height - bounds.height * WAVEFORM_HEIGHT_RATIO,
+                    };
+                    // スペクトル描画エリア内の位置を取得
+                    let y_in_spec = match self.spectrum_view_mode {
+                        Some(SpectrumViewMode::FFTANDMDCT) => (position.y - y_offset) % spec_height,
+                        _ => position.y - y_offset,
+                    };
                     return (
                         iced::widget::canvas::event::Status::Captured,
-                        Some(Message::CursorMovedOnSpectrum(
-                            self.get_sample_position_from_ratio(get_ratio(position.x)),
-                        )),
+                        Some(Message::CursorMovedOnSpectrum(Some((
+                            get_sample_ratio(position.x),
+                            (1.0 - y_in_spec / spec_height) as f64,
+                        )))),
                     );
                 }
                 _ => {}
