@@ -125,6 +125,7 @@ enum FrameSize {
 enum WindowType {
     Rectangle,
     Sin,
+    Vorbis,
     Hann,
     Blackman,
     BlackmanNuttall,
@@ -1835,9 +1836,10 @@ impl std::fmt::Display for FrameSize {
 }
 
 impl WindowType {
-    const ALL: [WindowType; 8] = [
+    const ALL: [WindowType; 9] = [
         Self::Rectangle,
         Self::Sin,
+        Self::Vorbis,
         Self::Hann,
         Self::Blackman,
         Self::BlackmanNuttall,
@@ -1879,6 +1881,14 @@ impl WindowType {
                 let mut window = vec![0.0f32; window_size];
                 for n in 0..window_size {
                     window[n] = ((n as f32 + 0.5) * PI / window_size as f32).sin();
+                }
+                window
+            }
+            Self::Vorbis => {
+                let mut window = vec![0.0f32; window_size];
+                for n in 0..window_size {
+                    let sqsin = f32::powf(((n as f32 + 0.5) * PI / window_size as f32).sin(), 2.0);
+                    window[n] = (PI / 2.0 * sqsin).sin();
                 }
                 window
             }
@@ -1932,6 +1942,7 @@ impl std::fmt::Display for WindowType {
         f.write_str(match self {
             Self::Rectangle => "Rectangle",
             Self::Sin => "Sin",
+            Self::Vorbis => "Vorbis",
             Self::Hann => "Hann",
             Self::Blackman => "Blackman",
             Self::BlackmanNuttall => "Blackman-Nuttall",
