@@ -126,6 +126,8 @@ enum WindowType {
     Rectangle,
     Sin,
     Hann,
+    Blackman,
+    BlackmanNuttall,
     KBD1,
     KBD5,
     KBD10,
@@ -1833,10 +1835,12 @@ impl std::fmt::Display for FrameSize {
 }
 
 impl WindowType {
-    const ALL: [WindowType; 6] = [
+    const ALL: [WindowType; 8] = [
         Self::Rectangle,
         Self::Sin,
         Self::Hann,
+        Self::Blackman,
+        Self::BlackmanNuttall,
         Self::KBD1,
         Self::KBD5,
         Self::KBD10,
@@ -1889,6 +1893,33 @@ impl WindowType {
                 }
                 window
             }
+            Self::Blackman => {
+                let mut window = vec![0.0f32; window_size];
+                for n in 0..window_size / 2 {
+                    window[n] = 7938.0 / 18608.0
+                        - 9240.0 / 18608.0
+                            * ((2.0 * n as f32 + 1.0) * PI / window_size as f32).cos()
+                        + 1430.0 / 18608.0
+                            * ((4.0 * n as f32 + 1.0) * PI / window_size as f32).cos();
+                }
+                for n in window_size / 2..window_size {
+                    window[n] = window[window_size - 1 - n]
+                }
+                window
+            }
+            Self::BlackmanNuttall => {
+                let mut window = vec![0.0f32; window_size];
+                for n in 0..window_size / 2 {
+                    window[n] = 0.3635819
+                        - 0.4891775 * ((2.0 * n as f32 + 1.0) * PI / window_size as f32).cos()
+                        + 0.1365995 * ((4.0 * n as f32 + 1.0) * PI / window_size as f32).cos()
+                        - 0.0106411 * ((4.0 * n as f32 + 1.0) * PI / window_size as f32).cos();
+                }
+                for n in window_size / 2..window_size {
+                    window[n] = window[window_size - 1 - n]
+                }
+                window
+            }
             Self::KBD1 => Self::generate_kbd_window(window_size, 1.0),
             Self::KBD5 => Self::generate_kbd_window(window_size, 5.0),
             Self::KBD10 => Self::generate_kbd_window(window_size, 10.0),
@@ -1902,6 +1933,8 @@ impl std::fmt::Display for WindowType {
             Self::Rectangle => "Rectangle",
             Self::Sin => "Sin",
             Self::Hann => "Hann",
+            Self::Blackman => "Blackman",
+            Self::BlackmanNuttall => "Blackman-Nuttall",
             Self::KBD1 => "KBD alpha=1",
             Self::KBD5 => "KBD alpha=5",
             Self::KBD10 => "KBD alpha=10",
