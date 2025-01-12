@@ -36,11 +36,11 @@ jobs:
       with:
         name: artifacts_${{ matrix.os }}
         path: |
-          target/release/wav_spectrum_viewer.exe
+          ./target/release/wav_spectrum_viewer.exe
     - name: Upload artifacts on *nix platforms
       if: runner.os == 'Linux' || runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
         name: artifacts_${{ matrix.os }}
         path: |
-          target/release/wav_spectrum_viewer
+          ./target/release/wav_spectrum_viewer
