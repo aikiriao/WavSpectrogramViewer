@@ -1913,7 +1913,7 @@ impl WindowType {
                     window[n] = 0.3635819
                         - 0.4891775 * ((2.0 * n as f32 + 1.0) * PI / window_size as f32).cos()
                         + 0.1365995 * ((4.0 * n as f32 + 1.0) * PI / window_size as f32).cos()
-                        - 0.0106411 * ((4.0 * n as f32 + 1.0) * PI / window_size as f32).cos();
+                        - 0.0106411 * ((6.0 * n as f32 + 1.0) * PI / window_size as f32).cos();
                 }
                 for n in window_size / 2..window_size {
                     window[n] = window[window_size - 1 - n]
