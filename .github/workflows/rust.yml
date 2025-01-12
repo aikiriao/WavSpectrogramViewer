@@ -36,15 +36,13 @@ jobs:
       with:
         name: wav_spectrogram_viewer_${{ matrix.os }}
         path: |
-          target/release/wav_spectrum_viewer.exe
+          target/release/wav_spectrogram_viewer.exe
         if-no-files-found: error
-        include-hidden-files: true
     - name: Upload artifacts on *nix platforms
       if: runner.os == 'Linux' || runner.os == 'macOS'
       uses: actions/upload-artifact@v4
       with:
         name: wav_spectrogram_viewer_${{ matrix.os }}
         path: |
-          target/release/wav_spectrum_viewer
+          target/release/wav_spectrogram_viewer
         if-no-files-found: error
-        include-hidden-files: true
