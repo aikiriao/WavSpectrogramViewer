@@ -309,16 +309,34 @@ impl WavSpectrumViewer {
                         (self.hz_range.0.to_string(), self.hz_range.1.to_string());
 
                     // 出力先デバイスのレートに合わせてレート変換しておく
-                    self.stream_resampled_pcm = Some(
-                        convert(
-                            wav.format.sampling_rate as u32,
-                            self.stream_config.sample_rate.0 as u32,
-                            wav.format.num_channels as usize,
-                            ConverterType::SincBestQuality,
-                            &wav.interleaved_pcm,
-                        )
-                        .unwrap(),
-                    );
+                    let resampled_pcm = convert(
+                        wav.format.sampling_rate as u32,
+                        self.stream_config.sample_rate.0 as u32,
+                        wav.format.num_channels as usize,
+                        ConverterType::SincBestQuality,
+                        &wav.interleaved_pcm,
+                    )
+                    .unwrap();
+                    if wav.format.num_channels == self.stream_config.channels {
+                        self.stream_resampled_pcm = Some(resampled_pcm);
+                    } else {
+                        if wav.format.num_channels == 1 {
+                            let resampled_len = resampled_pcm.len();
+                            let resampled_channels = self.stream_config.channels as usize;
+                            let mut output =
+                                vec![0.0f32; resampled_len * self.stream_config.channels as usize];
+                            for smpl in 0..resampled_len {
+                                for ch in 0..resampled_channels {
+                                    output[ch as usize + resampled_channels * smpl] =
+                                        resampled_pcm[smpl];
+                                }
+                            }
+                            self.stream_resampled_pcm = Some(output);
+                        } else {
+                            eprintln!("WARNING: unsupported channel configuration. playback result will be wrong.");
+                            self.stream_resampled_pcm = Some(resampled_pcm);
+                        }
+                    }
                     self.request_redraw();
                 }
 
@@ -481,7 +499,7 @@ impl WavSpectrumViewer {
                 if self.stream_is_playing.load(Ordering::Relaxed) {
                     // 再生位置を計算
                     let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
-                    let num_channels = self.wav.as_ref().unwrap().format.num_channels as usize;
+                    let num_channels = self.stream_config.channels as usize;
                     let played_samples =
                         self.stream_played_samples.load(Ordering::Relaxed) / num_channels;
                     // 再生済みサンプル数はレート変換が入っているので、レート変換比を計算
@@ -715,7 +733,7 @@ impl WavSpectrumViewer {
         if let (Some(wav), Some(resampled_pcm), Some(range)) =
             (&self.wav, &self.stream_resampled_pcm, self.sample_range)
         {
-            let num_channels = wav.format.num_channels as usize;
+            let num_channels = self.stream_config.channels as usize;
             let sampling_rate = wav.format.sampling_rate;
             // リサンプルした状態での範囲に変換
             let resampled_range = (
