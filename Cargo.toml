@@ -15,3 +15,4 @@ cpal = "0.15.3"
 samplerate = "0.2.4"
 aifc = "0.5.3"
 special-fun = "0.3.0"
+baremp3 = { git = "https://github.com/aikiriao/baremp3.git" }

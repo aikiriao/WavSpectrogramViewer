@@ -32,6 +32,8 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, PauseStreamError, PlayStreamError, Stream, StreamConfig};
 use samplerate::{convert, ConverterType};
 
+use baremp3::decoder::*;
+
 const YLABEL_WIDTH: f32 = 32.0;
 const DEFAULT_MIN_HZ: f32 = 50.0;
 const DEFAULT_MAX_HZ: f32 = 18000.0;
@@ -902,6 +904,47 @@ async fn load_file(path: impl Into<PathBuf>) -> Result<(PathBuf, WavData), Error
                     }
                     _ => {
                         return Err(Error::IoError(io::ErrorKind::Unsupported));
+                    }
+                }
+
+                return Ok((
+                    path,
+                    WavData {
+                        format: format,
+                        interleaved_pcm: pcm,
+                    },
+                ));
+            }
+            "mp3" => {
+                // データ読み込み
+                let data = std::fs::read(&path).unwrap();
+                let mp3_format = get_format_information(&data).unwrap();
+                let format = WavFormat {
+                    num_channels: mp3_format.num_channels as u16,
+                    sampling_rate: mp3_format.sampling_rate as u32 as f32,
+                    bits_per_sample: 16,
+                    num_samples_per_channel: mp3_format.num_samples,
+                };
+
+                // デコード
+                let mut output = vec![
+                    0.0f32;
+                    format.num_channels as usize
+                        * format.num_samples_per_channel as usize
+                ];
+                {
+                    let (left, right) = output.split_at_mut(format.num_samples_per_channel);
+                    let mut decoder = MP3Decoder::new();
+                    let _ = decoder.decode_whole(&data, &mut [left, right]).unwrap();
+                }
+
+                let mut pcm = output.clone();
+                let mut i = 0;
+                for smpl in 0..format.num_samples_per_channel {
+                    for ch in 0..format.num_channels {
+                        pcm[i] =
+                            output[ch as usize * format.num_samples_per_channel as usize + smpl];
+                        i += 1;
                     }
                 }
 
