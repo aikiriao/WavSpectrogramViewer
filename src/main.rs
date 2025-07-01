@@ -35,6 +35,8 @@ const DEFAULT_MIN_HZ: f32 = 50.0;
 const DEFAULT_MAX_HZ: f32 = 18000.0;
 const WAVEFORM_HEIGHT_RATIO: f32 = 1.0 / 8.0;
 const MIN_RANGE_RATIO_WIDTH: f64 = 1e-2;
+const NUM_HZ_LABELS: usize = 16;
+const NUM_TILE_LABELS: usize = 16;
 
 pub fn main() -> iced::Result {
     iced::application(
@@ -1275,15 +1277,15 @@ fn draw_spectrum(
 /// 周波数ラベル描画
 fn draw_hzlabel(
     frame: &mut Frame,
-    bounds: Rectangle,
-    frequency_scale: FrequencyScale,
+    bounds: &Rectangle,
+    frequency_scale: &FrequencyScale,
     hz_range: (f32, f32),
+    num_labels: usize,
 ) {
-    let num_hzlabel = 16;
     let hzlabel_right_x = bounds.center().x + bounds.width / 2.0;
     let hzlabel_bottom_y = bounds.center().y + bounds.height / 2.0;
-    for i in 0..num_hzlabel {
-        let normalized_pos = i as f32 / num_hzlabel as f32;
+    for i in 0..num_labels {
+        let normalized_pos = i as f32 / num_labels as f32;
         let hz = get_hz_from_normalized_position(&frequency_scale, normalized_pos, hz_range);
         let hz_string = if hz < 1000.0 {
             format!("{:.0}", hz)
@@ -1309,16 +1311,16 @@ fn draw_hzlabel(
 /// 時刻ラベル描画
 fn draw_timelabel(
     frame: &mut Frame,
-    bounds: Rectangle,
+    bounds: &Rectangle,
     sampling_rate: f32,
     sample_range: (usize, usize),
+    num_labels: usize
 ) {
-    let num_timelabel = 16;
     let timelabel_left_x = bounds.center().x - bounds.width / 2.0;
     let timelabel_y = bounds.center().y;
     let period = 1.0 / sampling_rate;
-    for i in 0..num_timelabel {
-        let normalized_pos = i as f32 / num_timelabel as f32;
+    for i in 0..num_labels {
+        let normalized_pos = i as f32 / num_labels as f32;
         let sample = sample_range.0 as f32
             + (sample_range.1 as f32 - sample_range.0 as f32) * normalized_pos;
         let time = sample * period;
@@ -1448,12 +1450,13 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                 // 時刻ラベル描画
                 draw_timelabel(
                     frame,
-                    Rectangle::new(
+                    &Rectangle::new(
                         Point::new(YLABEL_WIDTH, 0.0),
                         Size::new(bounds.width, YLABEL_WIDTH),
                     ),
                     sampling_rate,
                     sample_range,
+                    NUM_TILE_LABELS
                 );
 
                 // 振幅ラベル描画
@@ -1515,13 +1518,16 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         // 周波数ラベル描画
                         draw_hzlabel(
                             frame,
-                            Rectangle::new(
+                            &Rectangle::new(
                                 Point::new(0.0, waveform_height),
                                 Size::new(YLABEL_WIDTH, spectrum_height_per_view),
                             ),
-                            frequency_scale.clone(),
+                            &frequency_scale,
                             self.hz_range,
+                            NUM_HZ_LABELS
                         );
+
+                        // TODO: グリッド線がほしい
 
                         // FFTスペクトル描画
                         draw_spectrum(
@@ -1550,12 +1556,13 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         // 周波数ラベル描画
                         draw_hzlabel(
                             frame,
-                            Rectangle::new(
+                            &Rectangle::new(
                                 Point::new(0.0, waveform_height + spectrum_height_offset),
                                 Size::new(YLABEL_WIDTH, spectrum_height_per_view),
                             ),
-                            frequency_scale.clone(),
+                            &frequency_scale,
                             self.hz_range,
+                            NUM_HZ_LABELS
                         );
 
                         // MDCTスペクトル描画
