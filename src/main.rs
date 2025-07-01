@@ -781,6 +781,7 @@ impl WavSpectrumViewer {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 enum Error {
     DialogClosed,
