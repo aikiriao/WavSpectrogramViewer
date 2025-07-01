@@ -292,11 +292,12 @@ impl WavSpectrumViewer {
                         (self.hz_range.0.to_string(), self.hz_range.1.to_string());
 
                     // 出力先デバイスのレートに合わせてレート変換しておく
+                    // TODO: レート変換の品質を選べるように
                     let resampled_pcm = convert(
                         wav.format.sampling_rate as u32,
                         self.stream_config.sample_rate.0 as u32,
                         wav.format.num_channels as usize,
-                        ConverterType::SincBestQuality,
+                        ConverterType::SincFastest,
                         &wav.interleaved_pcm,
                     )
                     .unwrap();
