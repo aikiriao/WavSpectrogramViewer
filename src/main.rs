@@ -1,6 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // Releaseビルドの時コンソールを非表示
 use aifc;
+use baremp3::decoder::*;
+use colorous::Gradient;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::{Device, PauseStreamError, PlayStreamError, Stream, StreamConfig};
 use hound;
+use iced::keyboard::key::Named;
 use iced::widget::canvas::{self, stroke, Cache, Canvas, Event, Frame, Geometry, Path, Stroke};
 use iced::widget::{
     button, column, combo_box, container, horizontal_space, row, stack, text, text_input, tooltip,
@@ -10,9 +15,8 @@ use iced::{
     Size, Subscription, Task, Theme,
 };
 use iced::{event, mouse};
-
-use iced::keyboard::key::Named;
-
+use realfft::RealFftPlanner;
+use samplerate::{convert, ConverterType};
 use std::cmp;
 use std::ffi::OsStr;
 use std::io;
@@ -20,20 +24,11 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use colorous::Gradient;
-use realfft::RealFftPlanner;
-
 mod mdct;
 use crate::mdct::mdct;
 
 mod window;
 use crate::window::WindowType;
-
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, PauseStreamError, PlayStreamError, Stream, StreamConfig};
-use samplerate::{convert, ConverterType};
-
-use baremp3::decoder::*;
 
 const YLABEL_WIDTH: f32 = 32.0;
 const DEFAULT_MIN_HZ: f32 = 50.0;
