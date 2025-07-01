@@ -1171,16 +1171,16 @@ fn get_hz_from_normalized_position(
 /// スペクトル描画
 fn draw_spectrum(
     frame: &mut Frame,
-    bounds: Rectangle,
+    bounds: &Rectangle,
     pcm: &[f32],
     sampling_rate: f32,
     num_frame_samples: usize,
     window_type: &WindowType,
     spectrum_maker: fn(&mut Vec<f32>, &mut Vec<f32>, usize),
-    frequency_scale: FrequencyScale,
+    frequency_scale: &FrequencyScale,
     hz_range: (f32, f32),
     db_range: (f32, f32),
-    color_gradient: Gradient,
+    color_gradient: &Gradient,
 ) {
     let num_spectrum = num_frame_samples / 2;
 
@@ -1338,7 +1338,7 @@ fn draw_timelabel(
 }
 
 /// 振幅ラベル描画
-fn draw_amplitude_label(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
+fn draw_amplitude_label(frame: &mut Frame, bounds: &Rectangle, pcm: &[f32]) {
     let label_right_x = bounds.center().x + bounds.width / 2.0 - 3.0;
     let label_bottom_y = bounds.center().y + bounds.height / 2.0;
     let max_abs_pcm = pcm
@@ -1458,7 +1458,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                 // 振幅ラベル描画
                 draw_amplitude_label(
                     frame,
-                    Rectangle::new(
+                    &Rectangle::new(
                         Point::new(0.0, 0.0),
                         Size::new(YLABEL_WIDTH, waveform_height),
                     ),
@@ -1525,7 +1525,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         // FFTスペクトル描画
                         draw_spectrum(
                             frame,
-                            Rectangle::new(
+                            &Rectangle::new(
                                 Point::new(YLABEL_WIDTH, waveform_height),
                                 Size::new(bounds.width, spectrum_height_per_view),
                             ),
@@ -1534,10 +1534,10 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                             frame_size,
                             self.window_type.as_ref().unwrap(),
                             fft_make_spectrum,
-                            frequency_scale.clone(),
+                            &frequency_scale,
                             self.hz_range,
                             db_range,
-                            self.level_bar.color_map.as_ref().unwrap().to_colorous(),
+                            &self.level_bar.color_map.as_ref().unwrap().to_colorous(),
                         );
                     }
                     _ => {}
@@ -1560,7 +1560,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                         // MDCTスペクトル描画
                         draw_spectrum(
                             frame,
-                            Rectangle::new(
+                            &Rectangle::new(
                                 Point::new(YLABEL_WIDTH, waveform_height + spectrum_height_offset),
                                 Size::new(bounds.width, spectrum_height_per_view),
                             ),
@@ -1569,10 +1569,10 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                             frame_size,
                             self.window_type.as_ref().unwrap(),
                             mdct_make_spectrum,
-                            frequency_scale.clone(),
+                            &frequency_scale,
                             self.hz_range,
                             db_range,
-                            self.level_bar.color_map.as_ref().unwrap().to_colorous(),
+                            &self.level_bar.color_map.as_ref().unwrap().to_colorous(),
                         );
                     }
                     _ => {}
