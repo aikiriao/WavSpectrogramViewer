@@ -1433,11 +1433,18 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                 };
 
                 // 分析チャンネル・描画サンプル範囲の信号を取得
-                let pcm = &(wav.interleaved_pcm[(self.analyze_channel.unwrap() - 1)..]
-                    .to_vec()
-                    .into_iter()
-                    .step_by(wav.format.num_channels as usize)
-                    .collect::<Vec<f32>>())[sample_range.0..sample_range.1];
+                let pcm: Vec<f32>;
+                {
+                    let num_channels = wav.format.num_channels as usize;
+                    let analyze_offset = self.analyze_channel.unwrap() - 1;
+                    let begin = (num_channels * sample_range.0) + analyze_offset;
+                    let end = (num_channels * sample_range.1) + analyze_offset;
+                    pcm = wav.interleaved_pcm[begin..end]
+                        .to_vec()
+                        .into_iter()
+                        .step_by(num_channels)
+                        .collect();
+                }
 
                 let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
 
