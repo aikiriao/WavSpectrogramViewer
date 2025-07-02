@@ -593,84 +593,88 @@ impl WavSpectrumViewer {
         .spacing(10)
         .align_y(Center);
 
-        let status = row![
-            text(if let Some(path) = &self.file {
-                let path = path.display().to_string();
-                let path_len = path.chars().count();
+        let status = if self.is_loading {
+            row![text(String::from("File loading..."))]
+        } else {
+            row![
+                text(if let Some(path) = &self.file {
+                    let path = path.display().to_string();
+                    let path_len = path.chars().count();
 
-                if path_len > 50 {
-                    // パスが長い場合は省略
-                    let slice_position = path.char_indices().nth(path_len - 30).unwrap().0;
-                    format!("...{}", &path[slice_position..])
+                    if path_len > 50 {
+                        // パスが長い場合は省略
+                        let slice_position = path.char_indices().nth(path_len - 30).unwrap().0;
+                        format!("...{}", &path[slice_position..])
+                    } else {
+                        path
+                    }
                 } else {
-                    path
-                }
-            } else {
-                String::from("File not opened.")
-            }),
-            text(if let Some(wav) = &self.wav {
-                format!(
-                    "{:.1}kHz/{}samples",
-                    wav.format.sampling_rate / 1000.0,
-                    wav.format.num_samples_per_channel
-                )
-            } else {
-                format!("")
-            }),
-            horizontal_space(),
-            text(
-                if self.stream.is_none() || !self.stream_is_playing.load(Ordering::Relaxed) {
-                    format!("")
-                } else {
-                    // 再生位置を表示
-                    let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
-                    // レート変換の影響を加味
-                    let rate_ratio = sampling_rate / self.stream_config.sample_rate.0 as f32;
-                    let num_channels = self.wav.as_ref().unwrap().format.num_channels as usize;
-                    // チャンネルあたりのサンプル数に変換
-                    let played_samples =
-                        self.stream_played_samples.load(Ordering::Relaxed) / num_channels;
-                    let playing_position =
-                        self.sample_range.unwrap().0 as f32 + played_samples as f32 * rate_ratio;
-                    format!("{:.2}s", playing_position / sampling_rate)
-                }
-            ),
-            text({
-                if let Some(sample_position) = self.sample_position {
-                    // カーソル位置のサンプルを表示
-                    let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
+                    String::from("File not opened.")
+                }),
+                text(if let Some(wav) = &self.wav {
                     format!(
-                        "{}({:.2}s)",
-                        sample_position,
-                        sample_position as f32 / sampling_rate,
+                        "{:.1}kHz/{}samples",
+                        wav.format.sampling_rate / 1000.0,
+                        wav.format.num_samples_per_channel
                     )
                 } else {
                     format!("")
-                }
-            }),
-            text({
-                if let (Some(_), Some(hz_position)) = (&self.wav, self.hz_position) {
-                    // カーソル位置の周波数を表示
-                    format!("{:.1}Hz", hz_position)
-                } else {
-                    format!("")
-                }
-            }),
-            text({
-                if let Some(range) = self.sample_range {
-                    let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
-                    format!(
-                        "{}({:.2}s):{}({:.2}s)",
-                        range.0,
-                        range.0 as f32 / sampling_rate,
-                        range.1,
-                        range.1 as f32 / sampling_rate
-                    )
-                } else {
-                    format!("")
-                }
-            }),
-        ]
+                }),
+                horizontal_space(),
+                text(
+                    if self.stream.is_none() || !self.stream_is_playing.load(Ordering::Relaxed) {
+                        format!("")
+                    } else {
+                        // 再生位置を表示
+                        let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
+                        // レート変換の影響を加味
+                        let rate_ratio = sampling_rate / self.stream_config.sample_rate.0 as f32;
+                        let num_channels = self.wav.as_ref().unwrap().format.num_channels as usize;
+                        // チャンネルあたりのサンプル数に変換
+                        let played_samples =
+                            self.stream_played_samples.load(Ordering::Relaxed) / num_channels;
+                        let playing_position = self.sample_range.unwrap().0 as f32
+                            + played_samples as f32 * rate_ratio;
+                        format!("{:.2}s", playing_position / sampling_rate)
+                    }
+                ),
+                text({
+                    if let Some(sample_position) = self.sample_position {
+                        // カーソル位置のサンプルを表示
+                        let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
+                        format!(
+                            "{}({:.2}s)",
+                            sample_position,
+                            sample_position as f32 / sampling_rate,
+                        )
+                    } else {
+                        format!("")
+                    }
+                }),
+                text({
+                    if let (Some(_), Some(hz_position)) = (&self.wav, self.hz_position) {
+                        // カーソル位置の周波数を表示
+                        format!("{:.1}Hz", hz_position)
+                    } else {
+                        format!("")
+                    }
+                }),
+                text({
+                    if let Some(range) = self.sample_range {
+                        let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
+                        format!(
+                            "{}({:.2}s):{}({:.2}s)",
+                            range.0,
+                            range.0 as f32 / sampling_rate,
+                            range.1,
+                            range.1 as f32 / sampling_rate
+                        )
+                    } else {
+                        format!("")
+                    }
+                }),
+            ]
+        }
         .spacing(10);
 
         column![controls, spectrum_view, view_configures, status,]
