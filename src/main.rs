@@ -1314,7 +1314,7 @@ fn draw_timelabel(
     bounds: &Rectangle,
     sampling_rate: f32,
     sample_range: (usize, usize),
-    num_labels: usize
+    num_labels: usize,
 ) {
     let timelabel_left_x = bounds.center().x - bounds.width / 2.0;
     let timelabel_y = bounds.center().y;
@@ -1456,7 +1456,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     ),
                     sampling_rate,
                     sample_range,
-                    NUM_TILE_LABELS
+                    NUM_TILE_LABELS,
                 );
 
                 // 振幅ラベル描画
@@ -1524,7 +1524,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                             ),
                             &frequency_scale,
                             self.hz_range,
-                            NUM_HZ_LABELS
+                            NUM_HZ_LABELS,
                         );
 
                         // TODO: グリッド線がほしい
@@ -1562,7 +1562,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                             ),
                             &frequency_scale,
                             self.hz_range,
-                            NUM_HZ_LABELS
+                            NUM_HZ_LABELS,
                         );
 
                         // MDCTスペクトル描画
