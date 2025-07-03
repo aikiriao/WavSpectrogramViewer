@@ -11,10 +11,9 @@ use iced::widget::{
     button, column, combo_box, container, horizontal_space, row, stack, text, text_input, tooltip,
 };
 use iced::{
-    alignment, keyboard, Center, Color, Element, Fill, Font, Length, Point, Rectangle, Renderer,
-    Size, Subscription, Task, Theme,
+    alignment, event, keyboard, mouse, Center, Color, Element, Fill, Font, Length, Point,
+    Rectangle, Renderer, Size, Subscription, Task, Theme,
 };
-use iced::{event, mouse};
 use realfft::RealFftPlanner;
 use samplerate::{convert, ConverterType};
 use std::cmp;
@@ -27,8 +26,8 @@ use std::sync::Arc;
 mod mdct;
 use crate::mdct::mdct;
 
-mod window;
-use crate::window::WindowType;
+mod window_function;
+use crate::window_function::WindowType;
 
 const YLABEL_WIDTH: f32 = 32.0;
 const DEFAULT_MIN_HZ: f32 = 50.0;
