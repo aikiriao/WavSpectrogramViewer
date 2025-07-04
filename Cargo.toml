@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = { version = "0.13", features = ["canvas", "tokio", "debug"] }
+iced = { version = "0.13", features = ["canvas", "tokio", "debug", "image"] }
 tokio = { version = "1.0", features = ["fs"] }
 rfd = "0.13"
 hound = "3.5.1"
@@ -16,3 +16,4 @@ samplerate = "0.2.4"
 aifc = "0.5.3"
 special-fun = "0.3.0"
 baremp3 = { git = "https://github.com/aikiriao/baremp3.git" }
+image = "0.25.6"

@@ -10,10 +10,13 @@ use iced::widget::canvas::{self, stroke, Cache, Canvas, Event, Frame, Geometry, 
 use iced::widget::{
     button, column, combo_box, container, horizontal_space, row, stack, text, text_input, tooltip,
 };
+use iced::window::screenshot::Screenshot;
 use iced::{
-    alignment, event, keyboard, mouse, Center, Color, Element, Fill, Font, Length, Point,
+    alignment, event, keyboard, mouse, window, Center, Color, Element, Fill, Font, Length, Point,
     Rectangle, Renderer, Size, Subscription, Task, Theme,
 };
+use image;
+use image::ColorType;
 use realfft::RealFftPlanner;
 use samplerate::{convert, ConverterType};
 use std::cmp;
@@ -195,6 +198,9 @@ enum Message {
     AnalyzeChannelUpdated(usize),
     SampleRangeUpdated(Option<(usize, usize)>),
     CursorMovedOnSpectrum(Option<(f64, f64)>),
+    Screenshot,
+    Screenshotted(Screenshot),
+    ImageSaved(Result<(), Error>),
     ReceivedPlayStartRequest,
     Tick,
     EventOccurred(iced::Event),
@@ -480,6 +486,15 @@ impl WavSpectrumViewer {
 
                 Task::none()
             }
+            Message::Screenshot => {
+                return window::get_latest()
+                    .and_then(window::screenshot)
+                    .map(Message::Screenshotted);
+            }
+            Message::Screenshotted(screenshot) => {
+                return Task::perform(save_to_png(screenshot.clone()), Message::ImageSaved);
+            }
+            Message::ImageSaved(_result) => Task::none(),
             Message::Tick => {
                 if self.stream_is_playing.load(Ordering::Relaxed) {
                     // 再生位置を計算
@@ -796,7 +811,8 @@ enum Error {
 
 async fn open_file() -> Result<(PathBuf, WavData), Error> {
     let picked_file = rfd::AsyncFileDialog::new()
-        .set_title("Open a wav or aiff file...")
+        .set_title("Open a wave file...")
+        .add_filter("wav", &["wav", "aif", "aiff", "mp3"])
         .pick_file()
         .await
         .ok_or(Error::DialogClosed)?;
@@ -971,6 +987,29 @@ async fn load_file(path: impl Into<PathBuf>) -> Result<(PathBuf, WavData), Error
     }
 
     return Err(Error::IoError(io::ErrorKind::Unsupported));
+}
+
+async fn save_to_png(screenshot: Screenshot) -> Result<(), Error> {
+    let handle = rfd::AsyncFileDialog::new()
+        .set_title("Select a png file to save...")
+        .add_filter("png", &["png"])
+        .set_file_name("screenshot.png")
+        .save_file()
+        .await
+        .ok_or(Error::DialogClosed)?;
+
+    tokio::task::spawn_blocking(move || {
+        image::save_buffer(
+            handle.path(),
+            &screenshot.bytes,
+            screenshot.size.width,
+            screenshot.size.height,
+            ColorType::Rgba8,
+        )
+        .map_err(|_| Error::DialogClosed)
+    })
+    .await
+    .map_err(|_| Error::DialogClosed)?
 }
 
 fn action<'a, Message: Clone + 'a>(
@@ -1625,6 +1664,15 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                 return (
                     iced::widget::canvas::event::Status::Captured,
                     Some(Message::ReceivedPlayStartRequest),
+                );
+            }
+            Event::Keyboard(keyboard::Event::KeyReleased {
+                key: iced::keyboard::Key::Named(Named::F5),
+                ..
+            }) => {
+                return (
+                    iced::widget::canvas::event::Status::Captured,
+                    Some(Message::Screenshot),
                 );
             }
             _ => {}
