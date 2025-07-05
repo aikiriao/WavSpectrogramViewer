@@ -1358,6 +1358,7 @@ fn draw_timelabel(
     sample_range: (usize, usize),
     num_labels: usize,
 ) {
+    // TODO: グリッド線
     let timelabel_left_x = bounds.center().x - bounds.width / 2.0;
     let timelabel_y = bounds.center().y;
     let period = 1.0 / sampling_rate;
@@ -1840,16 +1841,6 @@ impl canvas::Program<Message> for SpectrumLevelBar {
                 Color::from_rgb8(color.r, color.g, color.b),
             )
         }
-        frame.fill_text(canvas::Text {
-            content: format!("{}", self.color_map.as_ref().unwrap()),
-            size: iced::Pixels(18.0),
-            position: Point::new(bounds.width / 2.0, bounds.height / 2.0),
-            color: Color::WHITE,
-            horizontal_alignment: alignment::Horizontal::Center,
-            vertical_alignment: alignment::Vertical::Center,
-            font: Font::MONOSPACE,
-            ..canvas::Text::default()
-        });
         vec![frame.into_geometry()]
     }
 
