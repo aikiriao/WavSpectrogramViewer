@@ -32,7 +32,7 @@ use crate::mdct::mdct;
 mod window_function;
 use crate::window_function::WindowType;
 
-const YLABEL_WIDTH: f32 = 32.0;
+const YLABEL_WIDTH: f32 = 40.0;
 const DEFAULT_MIN_HZ: f32 = 50.0;
 const DEFAULT_MAX_HZ: f32 = 18000.0;
 const WAVEFORM_HEIGHT_RATIO: f32 = 1.0 / 8.0;
