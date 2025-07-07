@@ -481,7 +481,9 @@ impl WavSpectrumViewer {
                     self.stream_play_stop().expect("Failed to stop play");
                 } else {
                     // 新規再生処理
-                    self.stream_play_start().expect("Failed to start play");
+                    if let Err(_) = self.stream_play_start() {
+                        eprintln!("[WavSpectrumViewer] Faild to start playback");
+                    }
                 }
 
                 Task::none()
@@ -754,30 +756,30 @@ impl WavSpectrumViewer {
                 .to_vec();
 
             // 再生ストリーム作成
-            let stream = self
-                .stream_device
-                .build_output_stream(
-                    &self.stream_config,
-                    move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                        let progress = played_samples.load(Ordering::Relaxed);
-                        // 一旦バッファを無音で埋める
-                        buffer.fill(0.0);
-                        if progress < pcm.len() {
-                            // バッファにコピー
-                            let num_copy_samples = cmp::min(pcm.len() - progress, buffer.len());
-                            buffer[..num_copy_samples]
-                                .copy_from_slice(&pcm[progress..progress + num_copy_samples]);
-                            // 再生サンプル増加
-                            played_samples.store(progress + num_copy_samples, Ordering::Relaxed);
-                        } else {
-                            // 指定サンプル数を再生し終わった
-                            is_playing.store(false, Ordering::Relaxed);
-                        }
-                    },
-                    |err| eprintln!("[WavSpectrumViewer] {err}"),
-                    None,
-                )
-                .unwrap();
+            let stream = match self.stream_device.build_output_stream(
+                &self.stream_config,
+                move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    let progress = played_samples.load(Ordering::Relaxed);
+                    // 一旦バッファを無音で埋める
+                    buffer.fill(0.0);
+                    if progress < pcm.len() {
+                        // バッファにコピー
+                        let num_copy_samples = cmp::min(pcm.len() - progress, buffer.len());
+                        buffer[..num_copy_samples]
+                            .copy_from_slice(&pcm[progress..progress + num_copy_samples]);
+                        // 再生サンプル増加
+                        played_samples.store(progress + num_copy_samples, Ordering::Relaxed);
+                    } else {
+                        // 指定サンプル数を再生し終わった
+                        is_playing.store(false, Ordering::Relaxed);
+                    }
+                },
+                |err| eprintln!("[WavSpectrumViewer] {err}"),
+                None,
+            ) {
+                Ok(stream) => stream,
+                Err(_) => return Err(PlayStreamError::DeviceNotAvailable),
+            };
 
             // 再生開始
             self.stream_played_samples.store(0, Ordering::Relaxed);
