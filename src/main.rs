@@ -645,7 +645,7 @@ impl WavSpectrumViewer {
                         let sampling_rate = self.wav.as_ref().unwrap().format.sampling_rate;
                         // レート変換の影響を加味
                         let rate_ratio = sampling_rate / self.stream_config.sample_rate.0 as f32;
-                        let num_channels = self.wav.as_ref().unwrap().format.num_channels as usize;
+                        let num_channels = self.stream_config.channels as usize;
                         // チャンネルあたりのサンプル数に変換
                         let played_samples =
                             self.stream_played_samples.load(Ordering::Relaxed) / num_channels;
