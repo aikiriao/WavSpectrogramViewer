@@ -771,12 +771,17 @@ impl WavSpectrumViewer {
             let num_channels = self.stream_config.channels as usize;
             let sampling_rate = wav.format.sampling_rate;
             // リサンプルした状態での範囲に変換
-            let resampled_range = (
+            let mut resampled_range = (
                 f32::round(range.0 as f32 * self.stream_config.sample_rate.0 as f32 / sampling_rate)
                     as usize,
                 f32::round(range.1 as f32 * self.stream_config.sample_rate.0 as f32 / sampling_rate)
                     as usize,
             );
+            // 丸めの結果範囲外になることもあるので範囲制限
+            let num_resampled_pcm_samples = resampled_pcm.len() / num_channels;
+            if resampled_range.1 >= num_resampled_pcm_samples {
+                resampled_range.1 = num_resampled_pcm_samples - 1;
+            }
 
             let is_playing = self.stream_is_playing.clone();
             let played_samples = self.stream_played_samples.clone();
