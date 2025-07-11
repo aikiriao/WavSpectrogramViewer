@@ -1731,8 +1731,12 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                                     current_range.1 = center + range_width / 4.0;
                                 } else {
                                     // ドラッグ範囲で更新
-                                    current_range.0 += from_ratio * range_width;
-                                    current_range.1 -= (1.0 - to_ratio) * range_width;
+                                    *current_range = (
+                                        (1.0 - from_ratio) * current_range.0
+                                            + from_ratio * current_range.1,
+                                        (1.0 - to_ratio) * current_range.0
+                                            + to_ratio * current_range.1,
+                                    );
                                 }
                                 // 端点を越えていたらクリップ
                                 if current_range.0 < 0.0 {
@@ -1802,7 +1806,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     return (
                         iced::widget::canvas::event::Status::Captured,
                         Some(Message::CursorMovedOnSpectrum(Some((
-                            get_sample_ratio(position.x),
+                            get_sample_ratio(cursor_position.x),
                             (1.0 - y_in_spec / spec_height) as f64,
                         )))),
                     );
