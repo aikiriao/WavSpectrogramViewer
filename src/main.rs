@@ -1077,12 +1077,12 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
         let path = Path::new(|b| {
             b.move_to(Point::new(
                 center_left.x,
-                center.y + pcm[0] * pcm_normalizer,
+                center.y - pcm[0] * pcm_normalizer,
             ));
             for i in 1..num_points_to_draw {
                 b.line_to(Point::new(
                     center_left.x + i as f32 * x_offset_delta,
-                    center.y + pcm[i * sample_stride] * pcm_normalizer,
+                    center.y - pcm[i * sample_stride] * pcm_normalizer,
                 ));
             }
         });
