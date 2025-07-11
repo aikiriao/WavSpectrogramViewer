@@ -78,6 +78,11 @@ struct PlayingPositionCursor {
     position_ratio: Option<f32>,
 }
 
+struct MouseCursorPoint {
+    cache: Cache,
+    position_ratio: Option<(f32, f32)>,
+}
+
 struct WavSpectrumViewer {
     file: Option<PathBuf>,
     wav: Option<WavData>,
@@ -89,6 +94,7 @@ struct WavSpectrumViewer {
     window_type_box: combo_box::State<WindowType>,
     level_bar: SpectrumLevelBar,
     playing_cursor: PlayingPositionCursor,
+    mouse_cursor: MouseCursorPoint,
     min_level_db: Option<LeveldB>,
     min_level_db_box: combo_box::State<LeveldB>,
     max_level_db: Option<LeveldB>,
@@ -228,6 +234,10 @@ impl WavSpectrumViewer {
                     color_map: Some(ColorMap::TURBO),
                 },
                 playing_cursor: PlayingPositionCursor {
+                    cache: Cache::default(),
+                    position_ratio: None,
+                },
+                mouse_cursor: MouseCursorPoint {
                     cache: Cache::default(),
                     position_ratio: None,
                 },
@@ -473,6 +483,24 @@ impl WavSpectrumViewer {
                     self.hz_position = None;
                 }
 
+                self.mouse_cursor.position_ratio = if let Some((sample_ratio, hz_ratio)) = result {
+                    if self.wav.is_some()
+                        && 0.0 <= sample_ratio
+                        && sample_ratio <= 1.0
+                        && 0.0 <= hz_ratio
+                        && hz_ratio <= 1.0
+                    {
+                        Some((sample_ratio as f32, hz_ratio as f32))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                // カーソル位置をクリア
+                self.mouse_cursor.cache.clear();
+
                 Task::none()
             }
             Message::ReceivedPlayStartRequest => {
@@ -559,6 +587,7 @@ impl WavSpectrumViewer {
         let spectrum_view = stack![
             Canvas::new(self).width(Fill).height(Fill),
             Canvas::new(&self.playing_cursor).width(Fill).height(Fill),
+            Canvas::new(&self.mouse_cursor).width(Fill).height(Fill),
         ];
 
         let view_configures = row![
@@ -1902,6 +1931,47 @@ impl canvas::Program<Message> for PlayingPositionCursor {
                 Stroke {
                     style: stroke::Style::Solid(Color::WHITE),
                     width: 1.0,
+                    ..Stroke::default()
+                },
+            );
+
+            vec![frame.into_geometry()]
+        } else {
+            vec![]
+        }
+    }
+}
+
+impl canvas::Program<Message> for MouseCursorPoint {
+    type State = ();
+
+    fn draw(
+        &self,
+        _state: &Self::State,
+        renderer: &Renderer,
+        _theme: &Theme,
+        bounds: Rectangle,
+        _cursor: mouse::Cursor,
+    ) -> Vec<Geometry> {
+        if let Some((x_ratio, y_ratio)) = self.position_ratio {
+            let mut frame = Frame::new(renderer, bounds.size());
+            let waveform_height = bounds.height * WAVEFORM_HEIGHT_RATIO;
+            let position_x = YLABEL_WIDTH + x_ratio * (bounds.width - YLABEL_WIDTH);
+            let position_y = waveform_height + (1.0 - y_ratio) * (bounds.height - waveform_height);
+
+            let path = Path::new(|b| {
+                b.move_to(Point::new(position_x, 0.0));
+                b.line_to(Point::new(position_x, bounds.height));
+                b.move_to(Point::new(YLABEL_WIDTH, position_y));
+                b.line_to(Point::new(bounds.width, position_y));
+            });
+
+            // カーソル描画
+            frame.stroke(
+                &path,
+                Stroke {
+                    style: stroke::Style::Solid(Color::WHITE),
+                    width: 0.5,
                     ..Stroke::default()
                 },
             );
