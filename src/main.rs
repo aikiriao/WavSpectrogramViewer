@@ -1399,7 +1399,7 @@ fn draw_timelabel(
     let timelabel_y = bounds.center().y;
     let period = 1.0 / sampling_rate;
     for i in 0..num_labels {
-        let normalized_pos = i as f32 / num_labels as f32;
+        let normalized_pos = (i as f32 + 0.5) / num_labels as f32;
         let sample = sample_range.0 as f32
             + (sample_range.1 as f32 - sample_range.0 as f32) * normalized_pos;
         let time = sample * period;
@@ -1411,7 +1411,7 @@ fn draw_timelabel(
                 timelabel_y,
             ),
             color: Color::WHITE,
-            horizontal_alignment: alignment::Horizontal::Left,
+            horizontal_alignment: alignment::Horizontal::Center,
             vertical_alignment: alignment::Vertical::Bottom,
             font: Font::MONOSPACE,
             ..canvas::Text::default()
@@ -1538,7 +1538,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     frame,
                     &Rectangle::new(
                         Point::new(YLABEL_WIDTH, 0.0),
-                        Size::new(bounds.width, YLABEL_WIDTH),
+                        Size::new(bounds.width - YLABEL_WIDTH, YLABEL_WIDTH),
                     ),
                     sampling_rate,
                     sample_range,
