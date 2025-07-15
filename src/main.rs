@@ -1156,7 +1156,7 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
                     center_left.x + i as f32 * x_offset_delta,
                     center.y - max_val * pcm_normalizer,
                 ),
-                Size::new(1.0, height),
+                Size::new(1.2, height),
                 line_color,
             );
             prev_sample = current_sample;
