@@ -1528,7 +1528,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     frame,
                     Rectangle::new(
                         Point::new(YLABEL_WIDTH, 0.0),
-                        Size::new(bounds.width, waveform_height),
+                        Size::new(bounds.width - YLABEL_WIDTH, waveform_height),
                     ),
                     &pcm,
                 );
@@ -1620,7 +1620,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                             frame,
                             &Rectangle::new(
                                 Point::new(YLABEL_WIDTH, waveform_height),
-                                Size::new(bounds.width, spectrum_height_per_view),
+                                Size::new(bounds.width - YLABEL_WIDTH, spectrum_height_per_view),
                             ),
                             &pcm,
                             sampling_rate,
@@ -1656,7 +1656,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                             frame,
                             &Rectangle::new(
                                 Point::new(YLABEL_WIDTH, waveform_height + spectrum_height_offset),
-                                Size::new(bounds.width, spectrum_height_per_view),
+                                Size::new(bounds.width - YLABEL_WIDTH, spectrum_height_per_view),
                             ),
                             &pcm,
                             sampling_rate,
