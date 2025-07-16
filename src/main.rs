@@ -1079,13 +1079,13 @@ fn icon<'a, Message>(codepoint: char) -> Element<'a, Message> {
 }
 
 /// 波形描画
-fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
+fn draw_waveform(frame: &mut Frame, bounds: &Rectangle, pcm: &[f32]) {
     let center = bounds.center();
     let half_height = bounds.height / 2.0;
     let center_left = Point::new(center.x - bounds.width / 2.0, center.y);
 
     let num_points_to_draw = cmp::min(pcm.len(), 4 * bounds.width as usize); // 描画する点数（それ以外は間引く）
-    let sample_stride = pcm.len() / num_points_to_draw;
+    let sample_stride = pcm.len() as f32 / num_points_to_draw as f32;
     let x_offset_delta = bounds.width / num_points_to_draw as f32;
 
     // 描画する波形を拡大するため最大絶対値を計算
@@ -1116,7 +1116,7 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
             for i in 1..num_points_to_draw {
                 b.line_to(Point::new(
                     center_left.x + i as f32 * x_offset_delta,
-                    center.y - pcm[i * sample_stride] * pcm_normalizer,
+                    center.y - pcm[(i as f32 * sample_stride).round() as usize] * pcm_normalizer,
                 ));
             }
         });
@@ -1134,7 +1134,7 @@ fn draw_waveform(frame: &mut Frame, bounds: Rectangle, pcm: &[f32]) {
         let mut prev_sample = 0;
         for i in 0..num_points_to_draw {
             const MIN_HEIGHT: f32 = 0.5;
-            let current_sample = (i + 1) * sample_stride;
+            let current_sample = ((i + 1) as f32 * sample_stride).round() as usize;
             let max_val = pcm[prev_sample..current_sample]
                 .iter()
                 .max_by(|a, b| a.total_cmp(&b))
@@ -1526,7 +1526,7 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                 // 波形描画
                 draw_waveform(
                     frame,
-                    Rectangle::new(
+                    &Rectangle::new(
                         Point::new(YLABEL_WIDTH, 0.0),
                         Size::new(bounds.width - YLABEL_WIDTH, waveform_height),
                     ),
