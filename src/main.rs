@@ -1478,7 +1478,7 @@ fn detect_sample_range(len: usize, frame_size: usize, range_ratio: (f64, f64)) -
     let end = (flen * range_ratio.1) as usize;
 
     if start + frame_size < end {
-        (start, end)
+        (start, end - 1)
     } else {
         // 範囲が狭すぎる場合はフレームサイズに制限
         if start + frame_size < len {
