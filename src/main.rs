@@ -281,64 +281,72 @@ impl WavSpectrumViewer {
             Message::FileOpened(result) => {
                 self.is_loading = false;
 
-                if let Ok((path, wav)) = result {
-                    // 再生中の場合は止める
-                    if self.stream_is_playing.load(Ordering::Relaxed) {
-                        self.stream_play_stop().expect("Failed to stop play");
-                    }
-
-                    self.file = Some(path);
-                    self.wav = Some(wav.clone());
-                    self.sample_range = Some((0, wav.format.num_samples_per_channel - 1));
-                    self.analyze_channel = Some(1);
-                    self.analyze_channel_box =
-                        combo_box::State::new((1..=wav.format.num_channels as usize).collect());
-                    if let Some(stream) = &self.stream {
-                        stream.pause().unwrap();
-                    }
-                    self.stream = None;
-                    // 周波数範囲が波形のサンプリングレートより大きければクリップ
-                    let nyquist_hz = wav.format.sampling_rate / 2.0;
-                    if self.hz_range.1 > nyquist_hz {
-                        self.hz_range.1 = nyquist_hz;
-                    }
-                    if self.hz_range.0 > nyquist_hz {
-                        self.hz_range.0 = 0.0;
-                    }
-                    self.hz_range_string =
-                        (self.hz_range.0.to_string(), self.hz_range.1.to_string());
-
-                    // 出力先デバイスのレートに合わせてレート変換しておく
-                    // TODO: レート変換の品質を選べるように
-                    let resampled_pcm = convert(
-                        wav.format.sampling_rate as u32,
-                        self.stream_config.sample_rate.0 as u32,
-                        wav.format.num_channels as usize,
-                        ConverterType::SincFastest,
-                        &wav.interleaved_pcm,
-                    )
-                    .unwrap();
-                    if wav.format.num_channels == self.stream_config.channels {
-                        self.stream_resampled_pcm = Some(resampled_pcm);
-                    } else {
-                        if wav.format.num_channels == 1 {
-                            let resampled_len = resampled_pcm.len();
-                            let resampled_channels = self.stream_config.channels as usize;
-                            let mut output =
-                                vec![0.0f32; resampled_len * self.stream_config.channels as usize];
-                            for smpl in 0..resampled_len {
-                                for ch in 0..resampled_channels {
-                                    output[ch as usize + resampled_channels * smpl] =
-                                        resampled_pcm[smpl];
-                                }
-                            }
-                            self.stream_resampled_pcm = Some(output);
-                        } else {
-                            eprintln!("WARNING: unsupported channel configuration. playback result will be wrong.");
-                            self.stream_resampled_pcm = Some(resampled_pcm);
+                match result {
+                    Ok((path, wav)) => {
+                        // 再生中の場合は止める
+                        if self.stream_is_playing.load(Ordering::Relaxed) {
+                            self.stream_play_stop().expect("Failed to stop play");
                         }
+
+                        self.file = Some(path);
+                        self.wav = Some(wav.clone());
+                        self.sample_range = Some((0, wav.format.num_samples_per_channel - 1));
+                        self.analyze_channel = Some(1);
+                        self.analyze_channel_box =
+                            combo_box::State::new((1..=wav.format.num_channels as usize).collect());
+                        if let Some(stream) = &self.stream {
+                            stream.pause().unwrap();
+                        }
+                        self.stream = None;
+                        // 周波数範囲が波形のサンプリングレートより大きければクリップ
+                        let nyquist_hz = wav.format.sampling_rate / 2.0;
+                        if self.hz_range.1 > nyquist_hz {
+                            self.hz_range.1 = nyquist_hz;
+                        }
+                        if self.hz_range.0 > nyquist_hz {
+                            self.hz_range.0 = 0.0;
+                        }
+                        self.hz_range_string =
+                            (self.hz_range.0.to_string(), self.hz_range.1.to_string());
+
+                        // 出力先デバイスのレートに合わせてレート変換しておく
+                        // TODO: レート変換の品質を選べるように
+                        let resampled_pcm = convert(
+                            wav.format.sampling_rate as u32,
+                            self.stream_config.sample_rate.0 as u32,
+                            wav.format.num_channels as usize,
+                            ConverterType::SincFastest,
+                            &wav.interleaved_pcm,
+                        )
+                        .unwrap();
+                        if wav.format.num_channels == self.stream_config.channels {
+                            self.stream_resampled_pcm = Some(resampled_pcm);
+                        } else {
+                            if wav.format.num_channels == 1 {
+                                let resampled_len = resampled_pcm.len();
+                                let resampled_channels = self.stream_config.channels as usize;
+                                let mut output = vec![
+                                    0.0f32;
+                                    resampled_len
+                                        * self.stream_config.channels as usize
+                                ];
+                                for smpl in 0..resampled_len {
+                                    for ch in 0..resampled_channels {
+                                        output[ch as usize + resampled_channels * smpl] =
+                                            resampled_pcm[smpl];
+                                    }
+                                }
+                                self.stream_resampled_pcm = Some(output);
+                            } else {
+                                eprintln!("WARNING: unsupported channel configuration. playback result will be wrong.");
+                                self.stream_resampled_pcm = Some(resampled_pcm);
+                            }
+                        }
+                        self.request_redraw();
                     }
-                    self.request_redraw();
+                    Err(e) => {
+                        eprintln!("ERROR: failed to open wav file: {:?}", e);
+                    }
                 }
 
                 Task::none()
@@ -886,6 +894,10 @@ async fn load_file(path: impl Into<PathBuf>) -> Result<(PathBuf, WavData), Error
                         }
                     }
                     hound::SampleFormat::Float => {
+                        if format.bits_per_sample == 64 {
+                            return Err(Error::IoError(io::ErrorKind::Unsupported));
+                        }
+
                         for i in 0..num_samples {
                             pcm[i] = reader.samples::<f32>().next().unwrap().unwrap() as f32;
                         }
