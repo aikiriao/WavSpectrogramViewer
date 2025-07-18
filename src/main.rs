@@ -872,14 +872,24 @@ async fn load_file(path: impl Into<PathBuf>) -> Result<(PathBuf, WavData), Error
                 };
 
                 let num_samples = format.num_samples_per_channel * format.num_channels as usize;
-                let max_pcm = (1 << (format.bits_per_sample - 1)) as f32;
-                let norm_const = 1.0 / max_pcm;
 
-                // チャンネルインターリーブで読みだす
+                // サンプル値をチャンネルインターリーブで読みだす
                 let mut pcm = vec![0.0; num_samples];
-                for i in 0..num_samples {
-                    let pcm_val = reader.samples::<i32>().next().unwrap().unwrap() as f32;
-                    pcm[i] = pcm_val * norm_const;
+                match spec.sample_format {
+                    hound::SampleFormat::Int => {
+                        let max_pcm = (1 << (format.bits_per_sample - 1)) as f32;
+                        let norm_const = 1.0 / max_pcm;
+
+                        for i in 0..num_samples {
+                            let pcm_val = reader.samples::<i32>().next().unwrap().unwrap() as f32;
+                            pcm[i] = pcm_val * norm_const;
+                        }
+                    }
+                    hound::SampleFormat::Float => {
+                        for i in 0..num_samples {
+                            pcm[i] = reader.samples::<f32>().next().unwrap().unwrap() as f32;
+                        }
+                    }
                 }
 
                 return Ok((
