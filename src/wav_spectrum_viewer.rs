@@ -61,7 +61,7 @@ struct PlayingPositionCursor {
 
 struct MouseCursorPoint {
     cache: Cache,
-    position_ratio: Option<(f32, f32)>,
+    position: Option<(f32, f32)>,
 }
 
 pub struct WavSpectrumViewer {
@@ -184,7 +184,7 @@ pub enum Message {
     SpectrumViewModeSelected(SpectrumViewMode),
     AnalyzeChannelUpdated(usize),
     SampleRangeUpdated(Option<(usize, usize)>),
-    CursorMovedOnSpectrum(Option<(f64, f64)>),
+    CursorMovedOnSpectrum(Option<((f32, f32), (f64, f64))>),
     Screenshot,
     Screenshotted(Screenshot),
     ImageSaved(Result<(), Error>),
@@ -220,7 +220,7 @@ impl WavSpectrumViewer {
                 },
                 mouse_cursor: MouseCursorPoint {
                     cache: Cache::default(),
-                    position_ratio: None,
+                    position: None,
                 },
                 min_level_db: Some(LeveldB::Level100dB),
                 min_level_db_box: combo_box::State::new(LeveldB::ALL.to_vec()),
@@ -456,7 +456,7 @@ impl WavSpectrumViewer {
                 Task::none()
             }
             Message::CursorMovedOnSpectrum(result) => {
-                if let Some((sample_ratio, hz_ratio)) = result {
+                if let Some((_, (sample_ratio, hz_ratio))) = result {
                     self.sample_position = self.get_sample_position_from_ratio(sample_ratio);
                     self.hz_position = if hz_ratio >= 0.0 && hz_ratio <= 1.0 {
                         Some(get_hz_from_normalized_position(
@@ -472,14 +472,9 @@ impl WavSpectrumViewer {
                     self.hz_position = None;
                 }
 
-                self.mouse_cursor.position_ratio = if let Some((sample_ratio, hz_ratio)) = result {
-                    if self.wav.is_some()
-                        && 0.0 <= sample_ratio
-                        && sample_ratio <= 1.0
-                        && 0.0 <= hz_ratio
-                        && hz_ratio <= 1.0
-                    {
-                        Some((sample_ratio as f32, hz_ratio as f32))
+                self.mouse_cursor.position = if let Some((pos, _)) = result {
+                    if self.wav.is_some() {
+                        Some((pos.0, pos.1))
                     } else {
                         None
                     }
@@ -1843,8 +1838,11 @@ impl canvas::Program<Message> for WavSpectrumViewer {
                     return (
                         iced::widget::canvas::event::Status::Captured,
                         Some(Message::CursorMovedOnSpectrum(Some((
-                            get_sample_ratio(cursor_position.x),
-                            (1.0 - y_in_spec / spec_height) as f64,
+                            (position.x, position.y),
+                            (
+                                get_sample_ratio(cursor_position.x),
+                                (1.0 - y_in_spec / spec_height) as f64,
+                            ),
                         )))),
                     );
                 }
@@ -1961,17 +1959,14 @@ impl canvas::Program<Message> for MouseCursorPoint {
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
-        if let Some((x_ratio, y_ratio)) = self.position_ratio {
+        if let Some((x, y)) = self.position {
             let mut frame = Frame::new(renderer, bounds.size());
-            let waveform_height = bounds.height * WAVEFORM_HEIGHT_RATIO;
-            let position_x = YLABEL_WIDTH + x_ratio * (bounds.width - YLABEL_WIDTH);
-            let position_y = waveform_height + (1.0 - y_ratio) * (bounds.height - waveform_height);
 
             let path = Path::new(|b| {
-                b.move_to(Point::new(position_x, 0.0));
-                b.line_to(Point::new(position_x, bounds.height));
-                b.move_to(Point::new(YLABEL_WIDTH, position_y));
-                b.line_to(Point::new(bounds.width, position_y));
+                b.move_to(Point::new(x - bounds.x, 0.0));
+                b.line_to(Point::new(x - bounds.x, bounds.height));
+                b.move_to(Point::new(0.0, y - bounds.y));
+                b.line_to(Point::new(bounds.width, y - bounds.y));
             });
 
             // カーソル描画
